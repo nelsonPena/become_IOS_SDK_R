@@ -40,39 +40,15 @@ La SDK requiere que dentro de las configuraciones `info.plis`, se encuentre una 
                dateFormatter.dateFormat = "yyyyMMddHHmmssSSS"
                userID = userId.text!.isEmpty ? dateFormatter.string(from: Date()) : userId.text!
                
-               let bdivConfig = BDIVConfig(ItFirstTransaction: true,
-                                              token:"your_bearer_token",
-                                              contractId:  "your_contract_id",
-                                              userId: userID,
-                                              customLocalizationFileName: "localize_test")
+               let bdivConfig = BDIVConfig(token: "your_bearer_token",
+                                        contractId: "your_contract_id",
+                                        userId: userID,
+                                        customLocalizationFileName:  "localize_test")
                                               
                BDIVCallBack.sharedInstance.register(bdivConfig: bdivConfig)
        }
                     
 
-**3. En el método `secondAction ()` de su `ViewController` de aplicación, inicialice Become y proceda al el envío de la imagen del documento para su posterior validación, se debe asignar el `ItFirstTransaction` como `False`, Y el parámetro `imgData` debe estar cargado con la información de la imagen completa por el anverso del documento. Puedes utilizar el siguiente fragmento de código:**
-
-Nota: para obtener información de la registraduría nacional de Colombia, se requiere se adicione el parámetro `documentNumber`, el cual es retornado por el primer llamado a la SDK. 
- 
-     @IBAction func secondAction(_ sender: Any) {
-        lblResponse.text = "Enviando segunda petición..."
-       
-       let bdivConfig = BDIVConfig(
-              ItFirstTransaction: false,
-              token: token.text!,
-              contractId: (contractId.text!.isEmpty ? "2" : contractId.text)!,
-              userId: userID,
-              documentNumber: responseIV.documentNumber, // adicionar este parámetro si es documento colombiano.
-              isoAlpha2CountryCode: responseIV.isoAlpha2CountryCode,
-              type: responseIV.type.rawValue,
-              imgDataFullFront: (responseIV.fullFronImage?.pngData())!,
-              imgDataCroppetBack: (responseIV.backImage?.pngData())!,
-              barcodeResultData: responseIV.barcodeResult)
-              
-        BDIVCallBack.sharedInstance.register(bdivConfig: bdivConfig)
-    }
-    
- 
  ## Cambiar textos predeterminados en la SDK     
 
 Para cambiar algún texto predeterminado y asignar uno en reemplazo de este, cree un archivo .string ejemplo: `localize_test.strings` en su proyecto y agrege la eqtiqueta del texto a remplazar ejemplo: `"blinkid_generic_message" = "Su texto aca";`, luego agregue el atributo `customLocalizationFileName` con el nombre del archivo strings en el objeto `BDIVConfig`.
@@ -87,7 +63,6 @@ Con `Localize_test.string.string` abierto, en el inspector de archivos toque el 
              let bdivConfig = BDIVConfig(token:"your_bearer_token",
                                contractId:  "your_contract_id",
                                userId: userID,
-                               ItFirstTransaction: true,
                                customLocalizationFileName: "localize_test")
              BDIVCallBack.sharedInstance.register(bdivConfig: bdivConfig)
      }
@@ -133,14 +108,16 @@ Con `Localize_test.string.string` abierto, en el inspector de archivos toque el 
 
 La SDK dará respuesta mediante dos métodos o promesas de respuesta, que pertenecen al estructura  `BDIVDelegate`:
 
-    	func BDIVResponseSuccess(bdivResult: AnyObject) {       
-    		        let idmResultFinal = bdivResult as! ResponseIV        
-    		       print(String(describing: idmResultFinal))           
-    	}        
-    
-    	func BDIVResponseError(error: String) { 
-    	       print(error)   
-    	 }
+          func BDIVResponseSuccess(bdivResult: AnyObject) {       
+              let idmResultFinal = bdivResult as! ResponseIV        
+              print(String(describing: idmResultFinal))           
+          }        
+
+          func BDIVResponseError(error: AnyObject) {
+              if let errorR = error as? BDIVError {
+                  print(errorR.message)   
+              }
+          }
 
 ## Estructura para el retorno de la información
 
@@ -149,68 +126,21 @@ Los siguientes parámetros permiten el retorno de la información capturada por 
     func BDIVResponseSuccess(bdivResult: AnyObject) {       
     		   let responseIV = bdivResult as! ResponseIV        
     		   
-          if(responseIV.IsFirstTransaction){
-            btnSecont.isHidden = false
-            lblResponse.text = String(describing: responseIV)
-            self.imgFront.image = responseIV.frontImage
-            self.imgBack.image = responseIV.backImage
-            self.imgFullBack.image = responseIV.fullBackImage
-            self.imgFullFront.image = responseIV.fullFronImage
-        }else{
-            lblResponse.text = String(describing: responseIV.documentValidation)
-        }         
+      lblNombre.text = responseIV?.result.fullName ?? ""
+      lblCIU.text = responseIV?.result.documentNumber ?? ""
+      lblDate.text = responseIV?.result.dateOfBirth?.originalDateString ?? ""
+      if(responseIV?.result.faceImage != nil)
+      {
+        if let image = responseIV?.result.faceImage?.image {
+            self.imgAlphaUser.image = image
+            self.imgAlphaUser.makeRounded(borderWidth: 2, borderColor: UIColor.clear.cgColor)
+            self.imgUser.image = image
+            self.imgUser.makeRounded(borderWidth: 5, borderColor: UIColor.clear.cgColor)
+        }
+      }        
     }        
 
 Si el parámetro `IsFirstTransaction`, es True, nos indica que es un retorna de la primera transacción, donde se obtiene la imágene que se debe enviar al segundo consumo.
-
-
-## Objeto para el retorno de la información
-Los siguientes parámetros permiten el retorno de la información capturada por el sistema:
-
-      public enum typeEstatus {
-        case SUCCES
-        case ERROR
-        case PENDING
-        case NOFOUND
-    }
-    
-    public var firstName: String
-    public var lastName: String
-    public var documentNumber: String
-    public var dateOfIssue: Date
-    public var dateOfExpiry: Date
-    public var age: Int
-    public var dateOfBirth: Date
-    public var placeOfBirth: String
-    public var nationality: String
-    public var mrzText: String
-    public var sex: String
-    public var barcodeResult: String
-    public var barcodeResultData: Data
-    public var isoAlpha2CountryCode: String
-    public var isoAlpha3CountryCode: String
-    public var isoNumericCountryCode: String
-    public var type: MBType
-    public var countryName: String
-    /// Returns a clipping of the photograph extracted from the document
-    public var faceImage: UIImage?
-    /// Returns a clipping of the document image
-    public var frontImage: UIImage?
-    /// Returns a clipping of the document image
-    public var backImage: UIImage?
-    /// Return full image of the document image
-    public var fullFronImage: UIImage?
-    /// Return full image of the document image
-    public var fullBackImage: UIImage?
-    public var message: String
-    /// Returns the results of the document validation.
-    /// - returns: `liveness_score`, `quality_score`, `liveness_probability`
-    public var documentValidation: [String: Any]
-    /// Returns information from the database for the specific country
-    public var registryInformation: [String: Any]
-    public var responseStatus: typeEstatus = .PENDING
-    /// Defines if the response comes from the first transaction.
-    public var IsFirstTransaction: Bool
 
 ## Posibles Errores
 **1. Error con parámetros vacíos**
@@ -220,50 +150,11 @@ Parámetro | Valor
 ------------ | -------------
 contractID | String
 userID  | String
-ItFirstTransaction  | Bool
 
 Mostrará el siguiente error por consola:
 
     parameters cannot be empty
 
-## Implementación del proceso
-
-Esta sección se encarga de proporcionar el fragmento de código para la implementación final del proceso:
-
-          import UIKit
-          import  BecomeDigitalV
-
-              class ViewController: UIViewController {
-
-                  override func viewDidLoad() {
-                      super.viewDidLoad()
-                  }
-
-                  @IBAction func startSDKAction(_ sender: Any) {
-                      let dateFormatter = DateFormatter()
-                      dateFormatter.locale = Locale(identifier: "es_ES") // date user identification
-                      dateFormatter.dateFormat = "yyyyMMddHHmmssSSS"
-                      userID = userId.text!.isEmpty ? dateFormatter.string(from: Date()) : userId.text!
-                      let bdivConfig = BDIVConfig(token:"your_bearer_token",
-                                        contractId:  "your_contract_id",
-                                        userId: userID,
-                                        ItFirstTransaction: true)
-                      BDIVCallBack.sharedInstance.register(bdivConfig: bdivConfig)
-                  }
-              }
-
-
-              extension ViewController: BDIVDelegate{
-                  func BDIVResponseSuccess(bdivResult: AnyObject) {
-                      let idmResultFinal = bdivResult as! ResponseIV
-                      print(String(describing: idmResultFinal))
-
-                  }
-
-                  func BDIVResponseError(error: String) {
-                      print(error)
-                  }
-              }
 
 ## Requerimientos
 •	Tecnologías
